@@ -179,6 +179,7 @@ public class Parser {
     private static final int CURRENT_TIMESTAMP = 21, CURRENT_DATE = 22,
             CURRENT_TIME = 23, ROWNUM = 24;
     private static final int SPATIAL_INTERSECTS = 25;
+    private static final int SPATIAL_COVERS = 26;
 
     private static final Comparator<TableFilter> TABLE_FILTER_COMPARATOR =
             new Comparator<TableFilter>() {
@@ -2124,6 +2125,15 @@ public class Parser {
             return new Comparison(session, Comparison.SPATIAL_INTERSECTS, r1,
                     r2);
         }
+        if (readIf("COVERS")) {
+            read("(");
+            Expression r1 = readConcat();
+            read(",");
+            Expression r2 = readConcat();
+            read(")");
+            return new Comparison(session, Comparison.SPATIAL_COVERS, r1,
+                    r2);
+        }
         Expression r = readConcat();
         while (true) {
             // special case: NOT NULL is not part of an expression (as in CREATE
@@ -3769,6 +3779,17 @@ public class Parser {
                 if ("&&".equals(s)) {
                     return SPATIAL_INTERSECTS;
                 }
+                if ("&=".equals(s)) {
+                    return SPATIAL_COVERS;
+                }
+                break;
+            }
+        } else if (s.length() == 3) { // Spatial functions
+            switch (c0) {
+            case '&': // All spatial Operators begin with & (at least for now)
+                if ("&&&".equals(s)) {
+                    return SPATIAL_COVERS;
+                }
                 break;
             }
         }
@@ -3818,6 +3839,8 @@ public class Parser {
                 return CURRENT_TIME;
             } else if (s.equals("CURRENT_DATE")) {
                 return CURRENT_DATE;
+            } else if (s.equals("COVERS")) {
+                return KEYWORD;
             }
             return getKeywordOrIdentifier(s, "CROSS", KEYWORD);
         case 'D':
@@ -6139,6 +6162,8 @@ public class Parser {
             return Comparison.NOT_EQUAL;
         case SPATIAL_INTERSECTS:
             return Comparison.SPATIAL_INTERSECTS;
+        case SPATIAL_COVERS:
+            return Comparison.SPATIAL_COVERS;
         default:
             return -1;
         }

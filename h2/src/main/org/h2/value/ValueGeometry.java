@@ -168,6 +168,22 @@ public class ValueGeometry extends Value {
     }
 
     /**
+     * Test if this geometry envelope completely covers the other geometry
+     * envelope.
+     *
+     * @param r the other geometry
+     * @return true if the two overlap
+     */
+    public boolean coversBoundingBox(ValueGeometry r) {
+        // the Geometry object caches the envelope
+        return r.getGeometryNoCopy().getEnvelopeInternal().covers(getGeometryNoCopy().getEnvelopeInternal());
+                //getGeometryNoCopy().getEnvelopeInternal()
+                //.covers(r.getGeometryNoCopy().getEnvelopeInternal());
+                //.intersects(
+                //r.getGeometryNoCopy().getEnvelopeInternal());
+    }
+
+    /**
      * Get the union.
      *
      * @param r the other geometry

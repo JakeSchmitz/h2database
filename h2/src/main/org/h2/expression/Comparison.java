@@ -109,6 +109,12 @@ public class Comparison extends Condition {
      */
     public static final int SPATIAL_INTERSECTS = 11;
 
+    /**
+     * This is another comparison type that is only used for spatial index
+     * conditions (operator "&&&").
+     */
+    public static final int SPATIAL_COVERS = 12;
+
     private final Database database;
     private int compareType;
     private Expression left;
@@ -134,6 +140,10 @@ public class Comparison extends Condition {
             break;
         case SPATIAL_INTERSECTS:
             sql = "INTERSECTS(" + left.getSQL() + ", " + right.getSQL() + ")";
+            break;
+        case SPATIAL_COVERS:
+            // TODO: Need to support COVERS somewhere
+            sql = "COVERS(" + left.getSQL() + ", " + right.getSQL() + ")";
             break;
         default:
             sql = left.getSQL() + " " + getCompareOperator(compareType) +
@@ -168,6 +178,9 @@ public class Comparison extends Condition {
             return "IS NOT";
         case SPATIAL_INTERSECTS:
             return "&&";
+        case SPATIAL_COVERS:
+            //return "&&&";
+            return "&=";
         default:
             throw DbException.throwInternalError("compareType=" + compareType);
         }
@@ -298,6 +311,13 @@ public class Comparison extends Condition {
             result = lg.intersectsBoundingBox(rg);
             break;
         }
+        case SPATIAL_COVERS: {
+            ValueGeometry lg = (ValueGeometry) l.convertTo(Value.GEOMETRY);
+            ValueGeometry rg = (ValueGeometry) r.convertTo(Value.GEOMETRY);
+            //result = lg.intersectsBoundingBox(rg);
+            result = lg.coversBoundingBox(rg);
+            break;
+        }
         default:
             throw DbException.throwInternalError("type=" + compareType);
         }
@@ -310,6 +330,7 @@ public class Comparison extends Condition {
         case EQUAL_NULL_SAFE:
         case NOT_EQUAL:
         case NOT_EQUAL_NULL_SAFE:
+        case SPATIAL_COVERS:
         case SPATIAL_INTERSECTS:
             return type;
         case BIGGER_EQUAL:
@@ -327,6 +348,7 @@ public class Comparison extends Condition {
 
     @Override
     public Expression getNotIfPossible(Session session) {
+        // Should this be || == SPATIAL_COVERS ?
         if (compareType == SPATIAL_INTERSECTS) {
             return null;
         }
@@ -430,6 +452,7 @@ public class Comparison extends Condition {
         case BIGGER_EQUAL:
         case SMALLER_EQUAL:
         case SMALLER:
+        case SPATIAL_COVERS:
         case SPATIAL_INTERSECTS:
             addIndex = true;
             break;

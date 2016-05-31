@@ -276,6 +276,10 @@ public class ViewIndex extends BaseIndex implements SpatialIndex {
             if ((mask & IndexCondition.SPATIAL_INTERSECTS) != 0) {
                 setParameter(paramList, idx++, intersection.getValue(i));
             }
+            if ((mask & IndexCondition.SPATIAL_COVERS) != 0) {
+                // TODO: Set parameters to use spatial index for covers condition
+                setParameter(paramList, idx++, intersection.getValue(i));
+            }
         }
     }
 
@@ -352,6 +356,11 @@ public class ViewIndex extends BaseIndex implements SpatialIndex {
             if ((mask & IndexCondition.SPATIAL_INTERSECTS) != 0) {
                 Parameter param = new Parameter(firstIndexParam + i);
                 q.addGlobalCondition(param, idx, Comparison.SPATIAL_INTERSECTS);
+                i++;
+            }
+            if ((mask & IndexCondition.SPATIAL_COVERS) != 0) {
+                Parameter param = new Parameter(firstIndexParam + i);
+                q.addGlobalCondition(param, idx, Comparison.SPATIAL_COVERS);
                 i++;
             }
         }

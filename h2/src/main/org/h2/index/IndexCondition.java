@@ -65,6 +65,12 @@ public class IndexCondition {
      */
     public static final int SPATIAL_INTERSECTS = 16;
 
+    /**
+     * A bit of a search mask meaning 'spatial covers'.
+     * TODO: Figure out the correct mask here, maybe not 16
+     */
+    public static final int SPATIAL_COVERS = 16;
+
     private final Column column;
     /**
      * see constants in {@link Comparison}
@@ -223,6 +229,9 @@ public class IndexCondition {
         case Comparison.SPATIAL_INTERSECTS:
             buff.append(" && ");
             break;
+        case Comparison.SPATIAL_COVERS:
+            buff.append(" &= ");
+            break;
         default:
             DbException.throwInternalError("type=" + compareType);
         }
@@ -269,6 +278,8 @@ public class IndexCondition {
             return END;
         case Comparison.SPATIAL_INTERSECTS:
             return SPATIAL_INTERSECTS;
+        case Comparison.SPATIAL_COVERS:
+            return SPATIAL_COVERS;
         default:
             throw DbException.throwInternalError("type=" + compareType);
         }
@@ -328,6 +339,8 @@ public class IndexCondition {
     public boolean isSpatialIntersects() {
         switch (compareType) {
         case Comparison.SPATIAL_INTERSECTS:
+            return true;
+        case Comparison.SPATIAL_COVERS:
             return true;
         default:
             return false;
@@ -426,6 +439,10 @@ public class IndexCondition {
         if ((i & SPATIAL_INTERSECTS) == SPATIAL_INTERSECTS) {
             s.appendExceptFirst("&");
             s.append("SPATIAL_INTERSECTS");
+        }
+        if ((i & SPATIAL_COVERS) == SPATIAL_COVERS) {
+            s.appendExceptFirst("&");
+            s.append("SPATIAL_COVERS");
         }
         return s.toString();
     }
