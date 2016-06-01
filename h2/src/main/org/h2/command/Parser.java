@@ -2136,14 +2136,16 @@ public class Parser {
             return new Comparison(session, Comparison.SPATIAL_COVERS, r1,
                     r2);
         }
-        if (readIf("EXPAND")) {
+        /*if (readIf("EXPAND")) {
             read("(");
-            ValueGeometry r1 = (ValueGeometry) readConcat().getValue(session).convertTo(Value.GEOMETRY);
+            Expression e1 = readConcat();
+            System.out.println("EXPANDING: " + e1.getSQL());
+            ValueGeometry r1 = (ValueGeometry) e1.getValue(session).convertTo(Value.GEOMETRY);
             read(",");
             Double r2 = readConcat().getValue(session).getDouble();
             read(")");
             return ValueExpression.get(ValueGeometry.expandGeometry(r1, r2));
-        }
+        }*/
         /*if (readIf("NEAR")) {
             read("(");
             Expression r1 = readConcat();
@@ -2182,14 +2184,16 @@ public class Parser {
             } else if (readIf("REGEXP")) {
                 Expression b = readConcat();
                 r = new CompareLike(database, r, b, null, true);
-            } else if (readIf("EXPAND")) {
+            /*} else if (readIf("EXPAND")) {
                 // TODO: Handle expanding geometries
                 read("(");
-                ValueGeometry r1 = (ValueGeometry) readConcat().getValue(session).convertTo(Value.GEOMETRY);
+                Expression e1 = readConcat();
+                System.out.println("INNER EXPANSION: " + e1.getSQL());
+                ValueGeometry r1 = (ValueGeometry) e1.getValue(session).convertTo(Value.GEOMETRY);
                 read(",");
                 Double r2 = readConcat().getValue(session).getDouble();
                 read(")");
-                r = ValueExpression.get(ValueGeometry.expandGeometry(r1, r2));
+                r = ValueExpression.get(ValueGeometry.expandGeometry(r1, r2));*/
             } else if (readIf("IS")) {
                 if (readIf("NOT")) {
                     if (readIf("NULL")) {
@@ -2533,6 +2537,20 @@ public class Parser {
             }
             break;
         }
+        case Function.EXPAND_GEOMETRY: {
+            read("(");
+            Expression r1 = readExpression();
+            System.out.println("TRYING EXPANDGEO: " + r1.getSQL());
+            function.setParameter(0, r1);
+            //ValueGeometry r1 = (ValueGeometry) readConcat().getValue(session).convertTo(Value.GEOMETRY);
+            read(",");
+            Expression r2 = readConcat();
+            function.setParameter(1, r2);
+            read(")");
+            System.out.println("DONE TRYING EXPANDGEO: " + r2.getSQL());
+            //r = ValueExpression.get(ValueGeometry.expandGeometry(r1, r2));
+            break;
+        }
         case Function.EXTRACT: {
             function.setParameter(0,
                     ValueExpression.get(ValueString.get(currentToken)));
@@ -2819,12 +2837,25 @@ public class Parser {
                 Query query = parseWith();
                 r = new Subquery(query);
             } else if (readIf("EXPAND")) {
-                read("(");
+                /*read("(");
                 ValueGeometry r1 = (ValueGeometry) readConcat().getValue(session).convertTo(Value.GEOMETRY);
                 read(",");
                 Double r2 = readConcat().getValue(session).getDouble();
                 read(")");
                 r = ValueExpression.get(ValueGeometry.expandGeometry(r1, r2));
+                read("(");*/
+                read("(");
+                Function function = Function.getFunction(database, "EXPAND");
+                Expression r1 = readConcat();
+                System.out.println("TRYING EXPANDGEOM: " + r1.getSQL());
+                function.setParameter(0, r1);
+                //ValueGeometry r1 = (ValueGeometry) readConcat().getValue(session).convertTo(Value.GEOMETRY);
+                read(",");
+                Expression r2 = readConcat();
+                function.setParameter(1, r2);
+                read(")");
+                r = function;
+                System.out.println("DONE TRYING EXPANDGEOM: " + r2.getSQL());
             } else {
                 throw getSyntaxError();
             }

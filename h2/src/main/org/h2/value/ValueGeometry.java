@@ -96,6 +96,14 @@ public class ValueGeometry extends Value {
         return get(gCopy.buffer(r));
     }
 
+    public ValueGeometry expandGeometry(Double r) {
+        Geometry gCopy = this.getGeometry();
+        System.out.println("GEO EXPANDED BOUNDS: " + gCopy.toText() );
+        ValueGeometry g = get(gCopy.buffer(r));
+        System.out.println("GEO EXPANDED BOUNDS: " + g.getGeometryNoCopy().toText() );
+        return g;
+    }
+
     /**
      * Get or create a geometry value for the given geometry.
      *
@@ -193,7 +201,10 @@ public class ValueGeometry extends Value {
      */
     public ValueGeometry getBoundingRegion(double dist) {
         Geometry g = getGeometry();
+        System.out.println("GEO BOUNDS: " + g.toText() );
+        // Expanded by doesn't do what we think it does?
         g.getEnvelopeInternal().expandBy(dist);
+        System.out.println("GEO EXPANDED BOUNDS: " + g.toText() );
         return get(g);
     }
 
