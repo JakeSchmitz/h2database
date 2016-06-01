@@ -91,6 +91,11 @@ public class ValueGeometry extends Value {
         return finder.isFoundZ() ? 3 : 2;
     }
 
+    public static ValueGeometry expandGeometry(Value g, Double r) {
+        Geometry gCopy = ((ValueGeometry)g).getGeometry();
+        return get(gCopy.buffer(r));
+    }
+
     /**
      * Get or create a geometry value for the given geometry.
      *
@@ -177,10 +182,19 @@ public class ValueGeometry extends Value {
     public boolean coversBoundingBox(ValueGeometry r) {
         // the Geometry object caches the envelope
         return r.getGeometryNoCopy().getEnvelopeInternal().covers(getGeometryNoCopy().getEnvelopeInternal());
-                //getGeometryNoCopy().getEnvelopeInternal()
-                //.covers(r.getGeometryNoCopy().getEnvelopeInternal());
-                //.intersects(
-                //r.getGeometryNoCopy().getEnvelopeInternal());
+    }
+
+    /**
+     * Given this geometry and a distance, compute a value geometry that contains this geometry and everything within
+     * dist of the boundary of this geometry
+     *
+     * @param dist
+     * @return
+     */
+    public ValueGeometry getBoundingRegion(double dist) {
+        Geometry g = getGeometry();
+        g.getEnvelopeInternal().expandBy(dist);
+        return get(g);
     }
 
     /**
