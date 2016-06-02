@@ -194,7 +194,8 @@ public class SpatialTreeIndex extends BaseIndex implements SpatialIndex {
         for (Column column : columns) {
             int index = column.getColumnId();
             int mask = masks[index];
-            if ((mask & IndexCondition.SPATIAL_INTERSECTS) != 0) {
+            // Might want to apply different cost function for covers than intersects, but unsure of what that would be
+            if (((mask & IndexCondition.SPATIAL_INTERSECTS) != 0) || ((mask & IndexCondition.SPATIAL_COVERS) != 0)) {
                 cost = 3 + rowCount / 4;
             }
         }

@@ -16,6 +16,7 @@ import org.h2.table.TableFilter;
 import org.h2.util.New;
 import org.h2.value.Value;
 import org.h2.value.ValueBoolean;
+import org.h2.value.ValueDouble;
 import org.h2.value.ValueGeometry;
 import org.h2.value.ValueNull;
 
@@ -109,6 +110,24 @@ public class Comparison extends Condition {
      */
     public static final int SPATIAL_INTERSECTS = 11;
 
+    /**
+     * This is another comparison type that is only used for spatial index
+     * conditions (operator "&=").
+     */
+    public static final int SPATIAL_COVERS = 12;
+
+    /**
+     * This is special operator only used for spatial index
+     * conditions (operator "&<"). Used to expand geometries to find points "near" a geometry
+     */
+    public static final int SPATIAL_WITHIN_RADIUS = 13;
+
+    /**
+     * This is another comparison type that is only used for spatial index
+     * conditions (operator "&=").
+     */
+    //public static final int SPATIAL_NEAR = 13;
+
     private final Database database;
     private int compareType;
     private Expression left;
@@ -135,6 +154,13 @@ public class Comparison extends Condition {
         case SPATIAL_INTERSECTS:
             sql = "INTERSECTS(" + left.getSQL() + ", " + right.getSQL() + ")";
             break;
+        case SPATIAL_COVERS:
+            // TODONE: Need to support COVERS somewhere
+            sql = "COVERS(" + left.getSQL() + ", " + right.getSQL() + ")";
+            break;
+        /*case SPATIAL_NEAR:
+            sql = "NEAR(" + left.getSQL() + ", " + right.getSQL() +  ", " + radius.getSQL() + ")";
+            break;*/
         default:
             sql = left.getSQL() + " " + getCompareOperator(compareType) +
                     " " + right.getSQL();
@@ -168,6 +194,11 @@ public class Comparison extends Condition {
             return "IS NOT";
         case SPATIAL_INTERSECTS:
             return "&&";
+        case SPATIAL_COVERS:
+            return "&=";
+        /*case SPATIAL_WITHIN_RADIUS:
+            // This isn't actually going to be a comparison operator because it produces a ValueGeometry, not a bool
+            return "&<";*/
         default:
             throw DbException.throwInternalError("compareType=" + compareType);
         }
@@ -298,6 +329,20 @@ public class Comparison extends Condition {
             result = lg.intersectsBoundingBox(rg);
             break;
         }
+        case SPATIAL_COVERS: {
+            ValueGeometry lg = (ValueGeometry) l.convertTo(Value.GEOMETRY);
+            ValueGeometry rg = (ValueGeometry) r.convertTo(Value.GEOMETRY);
+            //result = lg.intersectsBoundingBox(rg);
+            result = lg.coversBoundingBox(rg);
+            break;
+        }
+        /*case SPATIAL_NEAR: {
+            ValueGeometry lg = (ValueGeometry) l.convertTo(Value.GEOMETRY);
+            ValueDouble rg = (ValueDouble) r.convertTo(Value.DOUBLE);
+            //result = lg.intersectsBoundingBox(rg);
+            result = lg.getBoundingRegion(rg.getDouble());
+            break;
+        }*/
         default:
             throw DbException.throwInternalError("type=" + compareType);
         }
@@ -310,6 +355,7 @@ public class Comparison extends Condition {
         case EQUAL_NULL_SAFE:
         case NOT_EQUAL:
         case NOT_EQUAL_NULL_SAFE:
+        case SPATIAL_COVERS:
         case SPATIAL_INTERSECTS:
             return type;
         case BIGGER_EQUAL:
@@ -327,6 +373,7 @@ public class Comparison extends Condition {
 
     @Override
     public Expression getNotIfPossible(Session session) {
+        // Should this be || == SPATIAL_COVERS ?
         if (compareType == SPATIAL_INTERSECTS) {
             return null;
         }
@@ -430,6 +477,7 @@ public class Comparison extends Condition {
         case BIGGER_EQUAL:
         case SMALLER_EQUAL:
         case SMALLER:
+        case SPATIAL_COVERS:
         case SPATIAL_INTERSECTS:
             addIndex = true;
             break;

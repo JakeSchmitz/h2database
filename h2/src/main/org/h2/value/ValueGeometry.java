@@ -91,6 +91,19 @@ public class ValueGeometry extends Value {
         return finder.isFoundZ() ? 3 : 2;
     }
 
+    public static ValueGeometry expandGeometry(Value g, Double r) {
+        Geometry gCopy = ((ValueGeometry)g).getGeometry();
+        return get(gCopy.buffer(r));
+    }
+
+    public ValueGeometry expandGeometry(Double r) {
+        Geometry gCopy = this.getGeometry();
+        System.out.println("GEO EXPANDED BOUNDS: " + gCopy.toText() );
+        ValueGeometry g = get(gCopy.buffer(r));
+        System.out.println("GEO EXPANDED BOUNDS: " + g.getGeometryNoCopy().toText() );
+        return g;
+    }
+
     /**
      * Get or create a geometry value for the given geometry.
      *
@@ -163,8 +176,37 @@ public class ValueGeometry extends Value {
      */
     public boolean intersectsBoundingBox(ValueGeometry r) {
         // the Geometry object caches the envelope
-        return getGeometryNoCopy().getEnvelopeInternal().intersects(
-                r.getGeometryNoCopy().getEnvelopeInternal());
+        return getGeometryNoCopy().intersects(r.getGeometryNoCopy());
+        /*return getGeometryNoCopy().getEnvelopeInternal().intersects(
+                r.getGeometryNoCopy().getEnvelopeInternal());*/
+    }
+
+    /**
+     * Test if this geometry envelope completely covers the other geometry
+     * envelope.
+     *
+     * @param r the other geometry
+     * @return true if the two overlap
+     */
+    public boolean coversBoundingBox(ValueGeometry r) {
+        // the Geometry object caches the envelope
+        return r.getGeometryNoCopy().covers(getGeometryNoCopy());
+    }
+
+    /**
+     * Given this geometry and a distance, compute a value geometry that contains this geometry and everything within
+     * dist of the boundary of this geometry
+     *
+     * @param dist
+     * @return
+     */
+    public ValueGeometry getBoundingRegion(double dist) {
+        Geometry g = getGeometry();
+        System.out.println("GEO BOUNDS: " + g.toText() );
+        // Expanded by doesn't do what we think it does?
+        g.getEnvelopeInternal().expandBy(dist);
+        System.out.println("GEO EXPANDED BOUNDS: " + g.toText() );
+        return get(g);
     }
 
     /**

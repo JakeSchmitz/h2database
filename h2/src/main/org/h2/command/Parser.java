@@ -144,6 +144,7 @@ import org.h2.value.ValueBoolean;
 import org.h2.value.ValueBytes;
 import org.h2.value.ValueDate;
 import org.h2.value.ValueDecimal;
+import org.h2.value.ValueGeometry;
 import org.h2.value.ValueInt;
 import org.h2.value.ValueLong;
 import org.h2.value.ValueNull;
@@ -179,6 +180,8 @@ public class Parser {
     private static final int CURRENT_TIMESTAMP = 21, CURRENT_DATE = 22,
             CURRENT_TIME = 23, ROWNUM = 24;
     private static final int SPATIAL_INTERSECTS = 25;
+    private static final int SPATIAL_COVERS = 26;
+    private static final int SPATIAL_WITHIN_RADIUS = 27;
 
     private static final Comparator<TableFilter> TABLE_FILTER_COMPARATOR =
             new Comparator<TableFilter>() {
@@ -2115,7 +2118,7 @@ public class Parser {
             read(")");
             return new ConditionExists(query);
         }
-        if (readIf("INTERSECTS")) {
+        if (readIf("INTERSECT")) {
             read("(");
             Expression r1 = readConcat();
             read(",");
@@ -2124,6 +2127,37 @@ public class Parser {
             return new Comparison(session, Comparison.SPATIAL_INTERSECTS, r1,
                     r2);
         }
+        if (readIf("COVERS")) {
+            read("(");
+            Expression r1 = readConcat();
+            read(",");
+            Expression r2 = readConcat();
+            read(")");
+            return new Comparison(session, Comparison.SPATIAL_COVERS, r1,
+                    r2);
+        }
+        /*if (readIf("EXPAND")) {
+            read("(");
+            Expression e1 = readConcat();
+            System.out.println("EXPANDING: " + e1.getSQL());
+            ValueGeometry r1 = (ValueGeometry) e1.getValue(session).convertTo(Value.GEOMETRY);
+            read(",");
+            Double r2 = readConcat().getValue(session).getDouble();
+            read(")");
+            return ValueExpression.get(ValueGeometry.expandGeometry(r1, r2));
+        }*/
+        /*if (readIf("NEAR")) {
+            read("(");
+            Expression r1 = readConcat();
+            read(",");
+            Expression r2 = readConcat();
+            read(",");
+            // r3 should evaluate to a double, which should evaluate to the maxDistance
+            Expression r3 = readConcat();
+            read(")");
+            return new Comparison(session, Comparison.SPATIAL_NEAR, r1,
+                    r2, r3);
+        } */
         Expression r = readConcat();
         while (true) {
             // special case: NOT NULL is not part of an expression (as in CREATE
@@ -2150,6 +2184,16 @@ public class Parser {
             } else if (readIf("REGEXP")) {
                 Expression b = readConcat();
                 r = new CompareLike(database, r, b, null, true);
+            /*} else if (readIf("EXPAND")) {
+                // TODO: Handle expanding geometries
+                read("(");
+                Expression e1 = readConcat();
+                System.out.println("INNER EXPANSION: " + e1.getSQL());
+                ValueGeometry r1 = (ValueGeometry) e1.getValue(session).convertTo(Value.GEOMETRY);
+                read(",");
+                Double r2 = readConcat().getValue(session).getDouble();
+                read(")");
+                r = ValueExpression.get(ValueGeometry.expandGeometry(r1, r2));*/
             } else if (readIf("IS")) {
                 if (readIf("NOT")) {
                     if (readIf("NULL")) {
@@ -2227,7 +2271,7 @@ public class Parser {
                     r = new ConditionInSelect(database, r, query, false,
                             compareType);
                     read(")");
-                } else {
+                }  else {
                     Expression right = readConcat();
                     if (SysProperties.OLD_STYLE_OUTER_JOIN &&
                             readIf("(") && readIf("+") && readIf(")")) {
@@ -2491,6 +2535,20 @@ public class Parser {
                 function.setDataType(type);
                 read(")");
             }
+            break;
+        }
+        case Function.EXPAND_GEOMETRY: {
+            read("(");
+            Expression r1 = readExpression();
+            System.out.println("TRYING EXPANDGEO: " + r1.getSQL());
+            function.setParameter(0, r1);
+            //ValueGeometry r1 = (ValueGeometry) readConcat().getValue(session).convertTo(Value.GEOMETRY);
+            read(",");
+            Expression r2 = readConcat();
+            function.setParameter(1, r2);
+            read(")");
+            System.out.println("DONE TRYING EXPANDGEO: " + r2.getSQL());
+            //r = ValueExpression.get(ValueGeometry.expandGeometry(r1, r2));
             break;
         }
         case Function.EXTRACT: {
@@ -2778,6 +2836,26 @@ public class Parser {
             } else if (readIf("WITH")) {
                 Query query = parseWith();
                 r = new Subquery(query);
+            } else if (readIf("EXPAND")) {
+                /*read("(");
+                ValueGeometry r1 = (ValueGeometry) readConcat().getValue(session).convertTo(Value.GEOMETRY);
+                read(",");
+                Double r2 = readConcat().getValue(session).getDouble();
+                read(")");
+                r = ValueExpression.get(ValueGeometry.expandGeometry(r1, r2));
+                read("(");*/
+                read("(");
+                Function function = Function.getFunction(database, "EXPAND");
+                Expression r1 = readConcat();
+                System.out.println("TRYING EXPANDGEOM: " + r1.getSQL());
+                function.setParameter(0, r1);
+                //ValueGeometry r1 = (ValueGeometry) readConcat().getValue(session).convertTo(Value.GEOMETRY);
+                read(",");
+                Expression r2 = readConcat();
+                function.setParameter(1, r2);
+                read(")");
+                r = function;
+                System.out.println("DONE TRYING EXPANDGEOM: " + r2.getSQL());
             } else {
                 throw getSyntaxError();
             }
@@ -3765,9 +3843,17 @@ public class Parser {
                     return STRING_CONCAT;
                 }
                 break;
-            case '&':
+            case '&': // SPATIAL OPERATORS
                 if ("&&".equals(s)) {
                     return SPATIAL_INTERSECTS;
+                }
+                if ("&=".equals(s)) {
+                    return SPATIAL_COVERS;
+                }
+                // This operator should be used like: GEO_COL &< RADIUS, which would evaluate to a ValueGeometry that
+                // is the same shape as the value in GEO_COL, but expanded by RADIUS
+                if ("&<".equals(s)) {
+                    return SPATIAL_WITHIN_RADIUS;
                 }
                 break;
             }
@@ -3818,12 +3904,16 @@ public class Parser {
                 return CURRENT_TIME;
             } else if (s.equals("CURRENT_DATE")) {
                 return CURRENT_DATE;
+            } else if (s.equals("COVERS")) {
+                return KEYWORD;
             }
             return getKeywordOrIdentifier(s, "CROSS", KEYWORD);
         case 'D':
             return getKeywordOrIdentifier(s, "DISTINCT", KEYWORD);
         case 'E':
             if ("EXCEPT".equals(s)) {
+                return KEYWORD;
+            } else if (s.equals("EXPAND")) {
                 return KEYWORD;
             }
             return getKeywordOrIdentifier(s, "EXISTS", KEYWORD);
@@ -6139,6 +6229,11 @@ public class Parser {
             return Comparison.NOT_EQUAL;
         case SPATIAL_INTERSECTS:
             return Comparison.SPATIAL_INTERSECTS;
+        case SPATIAL_COVERS:
+            return Comparison.SPATIAL_COVERS;
+        case SPATIAL_WITHIN_RADIUS:
+            //return Comparison.SPATIAL_WITHIN_RADIUS;
+            // Drop through on SPATIAL_WITHIN_RADIUS because this isn't a comparison, but a function for expanding geometries
         default:
             return -1;
         }

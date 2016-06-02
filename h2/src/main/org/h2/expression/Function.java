@@ -61,6 +61,7 @@ import org.h2.value.ValueBoolean;
 import org.h2.value.ValueBytes;
 import org.h2.value.ValueDate;
 import org.h2.value.ValueDouble;
+import org.h2.value.ValueGeometry;
 import org.h2.value.ValueInt;
 import org.h2.value.ValueLong;
 import org.h2.value.ValueNull;
@@ -132,6 +133,8 @@ public class Function extends Expression implements FunctionCall {
     public static final int H2VERSION = 231;
 
     public static final int ROW_NUMBER = 300;
+
+    public static final int EXPAND_GEOMETRY = 256;
 
     private static final int VAR_ARGS = -1;
     private static final long PRECISION_UNKNOWN = -1;
@@ -479,6 +482,9 @@ public class Function extends Expression implements FunctionCall {
 
         // ON DUPLICATE KEY VALUES function
         addFunction("VALUES", VALUES, 1, Value.NULL, false, true, false);
+
+        // Function for expanding/ buffering a geometry
+        addFunction("EXPAND", EXPAND_GEOMETRY, 2, Value.GEOMETRY);
     }
 
     protected Function(Database database, FunctionInfo info) {
@@ -1657,6 +1663,12 @@ public class Function extends Expression implements FunctionCall {
         case VALUES:
             result = session.getVariable(args[0].getSchemaName() + "." +
                     args[0].getTableName() + "." + args[0].getColumnName());
+            break;
+        case EXPAND_GEOMETRY:
+            ValueGeometry g = ValueGeometry.get(StringUtils.xmlText(
+                    v0.getString()));
+            result =  g.expandGeometry(v1.getDouble());
+            System.out.println("RESULT OF GEOEXPAND: " + result.getSQL());
             break;
         default:
             throw DbException.throwInternalError("type=" + info.type);
