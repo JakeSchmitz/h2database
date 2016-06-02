@@ -2118,7 +2118,7 @@ public class Parser {
             read(")");
             return new ConditionExists(query);
         }
-        if (readIf("INTERSECTS")) {
+        if (readIf("INTERSECT")) {
             read("(");
             Expression r1 = readConcat();
             read(",");
